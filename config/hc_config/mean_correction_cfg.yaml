@@ -1,0 +1,6 @@
+# hyperparameters for mean correction head 
+# Add description here 
+
+correction_layers: 3
+correction_hidden: 3
+correction_act:  "gelu"

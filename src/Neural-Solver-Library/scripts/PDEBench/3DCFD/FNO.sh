@@ -1,0 +1,26 @@
+python run.py \
+--gpu 1 \
+--data_path /data/PDEBench/3D/3D/Train/3D_CFD_Rand_M1.0_Eta1e-08_Zeta1e-08_periodic_Train.hdf5 \
+--loader cfd3d \
+--geotype structured_3D \
+--task dynamic_autoregressive \
+--teacher_forcing 0 \
+--lr 0.0005 \
+--weight_decay 1e-4 \
+--scheduler StepLR \
+--space_dim 3 \
+--fun_dim 50 \
+--out_dim 5 \
+--downsamplex 2 \
+--downsampley 2 \
+--downsamplez 2 \
+--model FNO \
+--n_hidden 20 \
+--n_heads 8 \
+--n_layers 8 \
+--unified_pos 0 \
+--ref 8 \
+--batch-size 5 \
+--epochs 500 \
+--eval 0 \
+--save_name pdebench_FNO_3DCFD

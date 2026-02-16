@@ -1,0 +1,14 @@
+data:
+  root_dir: "/vol/bitbucket/bd922/data"
+  batch_size: 32
+hyper_parameters:
+  num_epochs: 2
+  batch_size: 1
+  optimizer: "adamw"
+  max_steps: 10
+wandb_logging:
+  project: "My Thesis"
+  run_name: "small_test_run"
+  wandb: True
+  log_every: 10 # steps for logging loss
+  image_log_every: 1 # epochs for image logging
