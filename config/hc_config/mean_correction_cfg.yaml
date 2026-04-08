@@ -1,6 +1,21 @@
-# hyperparameters for mean correction head 
-# Add description here 
+# Mean-correction hard constraint config.
+#
+# mode:
+# - post_output:        out = pred - mean(pred), no trainable head
+# - post_output_learned: learned correction from pred
+# - latent_head:        learned correction from latent activations via forward hook
+mode: "post_output"
 
+# Optional for all learned modes.
 correction_layers: 3
 correction_hidden: 3
-correction_act:  "gelu"
+correction_act: "gelu"
+
+# Optional reduction controls.
+channel_dim: -1
+# reduce_dims: [1]
+
+# Optional for mode=latent_head.
+# latent_module: "blocks.-1.ln_3"
+# latent_dim: 128
+# freeze_base: false

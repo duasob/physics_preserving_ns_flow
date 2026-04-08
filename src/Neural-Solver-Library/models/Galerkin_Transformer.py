@@ -1,35 +1,47 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from timm.models.layers import trunc_normal_
-from layers.Basic import MLP, LinearAttention
-from layers.Embedding import timestep_embedding, unified_pos_embedding
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
+from layers.Basic import MLP, LinearAttention
+from layers.Embedding import timestep_embedding, unified_pos_embedding
+from timm.models.layers import trunc_normal_
 
 
 class Galerkin_Transformer_block(nn.Module):
     """Transformer encoder block."""
 
     def __init__(
-            self,
-            num_heads: int,
-            hidden_dim: int,
-            dropout: float,
-            act='gelu',
-            mlp_ratio=4,
-            last_layer=False,
-            out_dim=1,
+        self,
+        num_heads: int,
+        hidden_dim: int,
+        dropout: float,
+        act="gelu",
+        mlp_ratio=4,
+        last_layer=False,
+        out_dim=1,
     ):
         super().__init__()
         self.last_layer = last_layer
         self.ln_1 = nn.LayerNorm(hidden_dim)
         self.ln_1a = nn.LayerNorm(hidden_dim)
-        self.Attn = LinearAttention(hidden_dim, heads=num_heads, dim_head=hidden_dim // num_heads,
-                                    dropout=dropout, attn_type='galerkin')
+        self.Attn = LinearAttention(
+            hidden_dim,
+            heads=num_heads,
+            dim_head=hidden_dim // num_heads,
+            dropout=dropout,
+            attn_type="galerkin",
+        )
         self.ln_2 = nn.LayerNorm(hidden_dim)
-        self.mlp = MLP(hidden_dim, hidden_dim * mlp_ratio, hidden_dim, n_layers=0, res=False, act=act)
+        self.mlp = MLP(
+            hidden_dim,
+            hidden_dim * mlp_ratio,
+            hidden_dim,
+            n_layers=0,
+            res=False,
+            act=act,
+        )
         if self.last_layer:
             self.ln_3 = nn.LayerNorm(hidden_dim)
             self.mlp2 = nn.Linear(hidden_dim, out_dim)
@@ -47,51 +59,55 @@ class Model(nn.Module):
     ## Factformer
     def __init__(self, args):
         super(Model, self).__init__()
-        self.__name__ = 'Factformer'
+        self.__name__ = "Factformer"
         self.args = args
         ## embedding
-        if args.unified_pos and args.geotype != 'unstructured':  # only for structured mesh
+        if (
+            args.unified_pos and args.geotype != "unstructured"
+        ):  # only for structured mesh
             self.pos = unified_pos_embedding(args.shapelist, args.ref)
-            self.preprocess = MLP(args.fun_dim + args.ref ** len(args.shapelist), args.n_hidden * 2,
-                                  args.n_hidden, n_layers=0, res=False, act=args.act)
+            self.preprocess = MLP(
+                args.fun_dim + args.ref ** len(args.shapelist),
+                args.n_hidden * 2,
+                args.n_hidden,
+                n_layers=0,
+                res=False,
+                act=args.act,
+            )
         else:
-            self.preprocess = MLP(args.fun_dim + args.space_dim, args.n_hidden * 2, args.n_hidden,
-                                  n_layers=0, res=False, act=args.act)
+            self.preprocess = MLP(
+                args.fun_dim + args.space_dim,
+                args.n_hidden * 2,
+                args.n_hidden,
+                n_layers=0,
+                res=False,
+                act=args.act,
+            )
         if args.time_input:
-            self.time_fc = nn.Sequential(nn.Linear(args.n_hidden, args.n_hidden), nn.SiLU(),
-                                         nn.Linear(args.n_hidden, args.n_hidden))
+            self.time_fc = nn.Sequential(
+                nn.Linear(args.n_hidden, args.n_hidden),
+                nn.SiLU(),
+                nn.Linear(args.n_hidden, args.n_hidden),
+            )
 
         ## models
-        self.use_mean_correction = getattr(args, "use_mean_correction", False)
-        self.blocks = nn.ModuleList([Galerkin_Transformer_block(num_heads=args.n_heads, hidden_dim=args.n_hidden,
-                                                                dropout=args.dropout,
-                                                                act=args.act,
-                                                                mlp_ratio=args.mlp_ratio,
-                                                                out_dim=args.out_dim,
-                                                                last_layer=(not self.use_mean_correction and _ == args.n_layers - 1))
-                                     for _ in range(args.n_layers)])
-        if self.use_mean_correction:
-            from src.hard_constraints import MeanCorrection
-
-            correction_hidden = getattr(args, "correction_hidden", None)
-            if correction_hidden in (None, 0):
-                correction_hidden = args.n_hidden * 2
-            correction_layers = getattr(args, "correction_layers", 0)
-            correction_act = getattr(args, "correction_act", args.act)
-            pred_head = nn.Sequential(
-                nn.LayerNorm(args.n_hidden),
-                nn.Linear(args.n_hidden, args.out_dim),
-            )
-            self.mean_correction = MeanCorrection(
-                latent_dim=args.n_hidden,
-                out_dim=args.out_dim,
-                hidden_dim=correction_hidden,
-                n_layers=correction_layers,
-                act=correction_act,
-                pred_head=pred_head,
-                channel_dim=-1,
-            )
-        self.placeholder = nn.Parameter((1 / (args.n_hidden)) * torch.rand(args.n_hidden, dtype=torch.float))
+        self.blocks = nn.ModuleList(
+            [
+                Galerkin_Transformer_block(
+                    num_heads=args.n_heads,
+                    hidden_dim=args.n_hidden,
+                    dropout=args.dropout,
+                    act=args.act,
+                    mlp_ratio=args.mlp_ratio,
+                    out_dim=args.out_dim,
+                    last_layer=(_ == args.n_layers - 1),
+                )
+                for _ in range(args.n_layers)
+            ]
+        )
+        self.placeholder = nn.Parameter(
+            (1 / (args.n_hidden)) * torch.rand(args.n_hidden, dtype=torch.float)
+        )
         self.initialize_weights()
 
     def initialize_weights(self):
@@ -106,7 +122,7 @@ class Model(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    def forward(self, x, fx, T=None, geo=None, return_aux=False):
+    def forward(self, x, fx, T=None, geo=None):
         if self.args.unified_pos:
             x = self.pos.repeat(x.shape[0], 1, 1)
         if fx is not None:
@@ -117,12 +133,12 @@ class Model(nn.Module):
         fx = fx + self.placeholder[None, None, :]
 
         if T is not None:
-            Time_emb = timestep_embedding(T, self.args.n_hidden).repeat(1, x.shape[1], 1)
+            Time_emb = timestep_embedding(T, self.args.n_hidden).repeat(
+                1, x.shape[1], 1
+            )
             Time_emb = self.time_fc(Time_emb)
             fx = fx + Time_emb
 
         for block in self.blocks:
             fx = block(fx)
-        if self.use_mean_correction:
-            return self.mean_correction(fx, return_aux=return_aux)
         return fx

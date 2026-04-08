@@ -1,0 +1,44 @@
+model:
+  backbone: "Galerkin_Transformer"
+  config: "config/model_config/Galerkin_Transformer.yaml"
+
+path:
+  root_dir: "data/NavierStokes_V1e-5_N1200_T20"
+  save_dir: "checkpoints/NavierStokes_V1e-5_N1200_T20/gt_no_constraint"
+
+data:
+  ns_mode: "autoregressive"
+  downsamplex: 1
+  downsampley: 1
+  ntrain: 1000
+  ntest: 200
+  T_in: 10
+  T_out: 10
+
+hyper_parameters:
+  num_epochs: 500
+  batch_size: 2 
+  optimizer: "adamw"
+  max_steps: null
+  learning_rate: 1e-3
+  weight_decay: 1e-5
+  scheduler: "OneCycleLR"
+  pct_start: 0.3
+  step_size: 100
+  gamma: 0.5
+  max_grad_norm: null
+  teacher_forcing: 1
+  val_size: 100
+  val_split_seed: 42
+  early_stopping:
+    enabled: false
+    patience: 20
+    min_delta: 0.0
+    monitor: "val_rel_l2"
+
+wandb_logging:
+  wandb: true
+  project: "hc_fluid"
+  run_name: "gt_no_constraint"
+  log_every: 100
+  image_log_every: 10
