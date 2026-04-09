@@ -24,7 +24,7 @@ $$\int w(x,y)dxdy=c \quad (c=0 \text{ in our case})$$
 a vanilla model can learn accurate flow predictions, but the predicted global vorticity does not have to be constant.
 ![global v](images/predicted_global_v%20.png)
 
-We implement a correction branch that goes in parallel with the prediction head (original backbone) of the model. It takes a latent representation of the input ($z_t$) and predicts an offset map ($c_t$) that corrects the output of the original prediction ($x_t$). 
+We implement a correction branch that goes in parallel with the prediction head (original backbone) of the model. It takes a latent representation of the input ($z_t$) and predicts an offset map ($c_t$) that corrects the output of the original prediction ($y_t$). 
 
 ```python
 # CH is the correction head
